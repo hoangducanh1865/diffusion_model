@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import torch.nn as nn
@@ -39,6 +40,7 @@ class Trainer:
         self.path_to_dataset = Config.path_to_dataset
         self.lr = Config.lr
         self.num_epochs = Config.num_epochs
+        self.path_to_checkpoints = Config.path_to_checkpoints
 
         # Set num_input_channels based on dataset
         if self.dataset_name == "MNIST":
@@ -125,8 +127,8 @@ class Trainer:
                 if completed_steps % self.evaluation_interval == 0:
                     loss_mean = np.mean(training_losses)
                     print(f"Training Loss: {loss_mean}")
-                    lr = self.optimizer.param_groups[-1]['lr']
-                    print(f"Learning Rate: {lr}") # @QUESTION
+                    lr = self.optimizer.param_groups[-1]['lr'] # @QUESTION
+                    print(f"Learning Rate: {lr}") 
                     
                     training_losses=[]
                     
@@ -149,9 +151,8 @@ class Trainer:
                     break
 
     def save_checkpoint(self):
-        import os
-        os.makedirs("models/checkpoints", exist_ok=True)
-        checkpoint_path = f"models/checkpoints/model_epoch_{self.num_epochs}.pth"
+        os.makedirs(self.path_to_checkpoints, exist_ok=True)
+        checkpoint_path = os.path.join(self.path_to_checkpoints, f"model_epoch_{self.num_epochs}.pth")
         torch.save({
             'epoch': self.num_epochs,
             'model_state_dict': self.model.state_dict(),
