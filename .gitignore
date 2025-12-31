@@ -209,3 +209,7 @@ __marimo__/
 .DS_Store
 debug/
 tmp/
+models/checkpoints/*
+!models/checkpoints/.gitkeep
+models/generated/*
+!models/generated/.gitkeep

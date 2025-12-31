@@ -1,7 +1,10 @@
 import os
+os.environ['MPLBACKEND'] = 'Agg'
 import torch
 import numpy as np
 import itertools
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from torchvision import transforms
 
@@ -22,16 +25,29 @@ class Utils:
         device,
     ):
         ### Conver Tensor back to Image (From Huggingface Annotated Diffusion) ###
-        tensor2image_transform = transforms.Compose(
-            [
-                transforms.Lambda(lambda t: t.squeeze(0)),
-                transforms.Lambda(lambda t: (t + 1) / 2),
-                transforms.Lambda(lambda t: t.permute(1, 2, 0)),
-                transforms.Lambda(lambda t: t * 255.0),
-                transforms.Lambda(lambda t: t.cpu().numpy().astype(np.uint8)),
-                transforms.ToPILImage(),
-            ]
-        )
+        if num_channels == 1:
+            # Grayscale
+            tensor2image_transform = transforms.Compose(
+                [
+                    transforms.Lambda(lambda t: t.squeeze(0)),  # (1, H, W) -> (H, W)
+                    transforms.Lambda(lambda t: ((t + 1) / 2).clamp(0, 1)),
+                    transforms.Lambda(lambda t: t * 255.0),
+                    transforms.Lambda(lambda t: t.cpu().numpy().astype(np.uint8)),
+                    transforms.ToPILImage(),
+                ]
+            )
+        else:
+            # RGB
+            tensor2image_transform = transforms.Compose(
+                [
+                    transforms.Lambda(lambda t: t.squeeze(0)),  # (C, H, W) -> (C, H, W) if C>1
+                    transforms.Lambda(lambda t: ((t + 1) / 2).clamp(0, 1)),
+                    transforms.Lambda(lambda t: t.permute(1, 2, 0)),  # (C, H, W) -> (H, W, C)
+                    transforms.Lambda(lambda t: t * 255.0),
+                    transforms.Lambda(lambda t: t.cpu().numpy().astype(np.uint8)),
+                    transforms.ToPILImage(),
+                ]
+            )
 
         images = torch.randn((num_gens, num_channels, image_size, image_size))
         num_images_per_gen = total_timesteps // plot_freq

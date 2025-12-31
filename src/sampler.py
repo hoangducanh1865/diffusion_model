@@ -21,7 +21,7 @@ class Sampler:
     def add_noise(self, images, timesteps):
         batch_size, c, h, w = images.shape
         device = images.device
-        alpha_cummulative_prod_timesteps = self.alpha_cummulative_prod[timesteps].to(device)
+        alpha_cummulative_prod_timesteps = self.alpha_cummulative_prod[timesteps.cpu()].to(device)
         mean_coeff = alpha_cummulative_prod_timesteps**0.5
         var_coeff = (1 - alpha_cummulative_prod_timesteps) ** 0.5
         mean_coeff = self._repeated_unsqueeze(images, mean_coeff)
@@ -36,10 +36,10 @@ class Sampler:
         b, c, h, w = images.shape
         device = images.device
         equal_to_zero_mask = timesteps == 0
-        beta_t = self.beta_schedule[timesteps].to(device)
-        alpha_t = self.alpha[timesteps].to(device)
-        alpha_cummulative_prod_t = self.alpha_cummulative_prod[timesteps].to(device)
-        alpha_cummulative_prod_t_prev = self.alpha_cummulative_prod[timesteps - 1].to(device)
+        beta_t = self.beta_schedule[timesteps.cpu()].to(device)
+        alpha_t = self.alpha[timesteps.cpu()].to(device)
+        alpha_cummulative_prod_t = self.alpha_cummulative_prod[timesteps.cpu()].to(device)
+        alpha_cummulative_prod_t_prev = self.alpha_cummulative_prod[(timesteps.cpu() - 1)].to(device)
         alpha_cummulative_prod_t_prev[equal_to_zero_mask] = (
             1.0  # @QUESTION: this line of code looks weird
         )

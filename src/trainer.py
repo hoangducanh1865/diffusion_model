@@ -16,16 +16,23 @@ from src.utils import Utils
 class Trainer:
     def __init__(
         self,
+        args=None,
         image_size=64,
-        num_input_channels=None,  # Will be set based on dataset
         batch_size=64,
         total_timesteps=500,
         plot_freq_interval=50,
         num_generations=5,
         num_training_steps=50000,
         evaluation_interval=1000,
-        path_to_generated="generated",
     ):
+        self.device = args.device
+        self.lr = args.lr
+        self.num_epochs = args.num_epochs
+        self.dataset_name = args.dataset
+        self.path_to_dataset = args.path_to_dataset
+        self.path_to_checkpoints = args.path_to_checkpoints
+        self.path_to_generated = args.path_to_generated
+
         self.image_size = image_size
         self.btach_size = batch_size
         self.total_timesteps = total_timesteps
@@ -33,14 +40,6 @@ class Trainer:
         self.num_generations = num_generations
         self.num_training_steps = num_training_steps
         self.evaluation_interval = evaluation_interval
-        self.path_to_generated = path_to_generated
-
-        self.device = Config.device
-        self.dataset_name = Config.dataset
-        self.path_to_dataset = Config.path_to_dataset
-        self.lr = Config.lr
-        self.num_epochs = Config.num_epochs
-        self.path_to_checkpoints = Config.path_to_checkpoints
 
         # Set num_input_channels based on dataset
         if self.dataset_name == "MNIST":
@@ -51,14 +50,20 @@ class Trainer:
         self.image2tensor = transforms.Compose(
             [
                 transforms.Resize((image_size, image_size)),
-                transforms.RandomHorizontalFlip() if self.dataset_name == "CelebA" else transforms.Lambda(lambda x: x),  # No flip for MNIST
+                (
+                    transforms.RandomHorizontalFlip()
+                    if self.dataset_name == "CelebA"
+                    else transforms.Lambda(lambda x: x)
+                ),  # No flip for MNIST
                 transforms.ToTensor(),
                 transforms.Lambda(lambda t: (t * 2) - 1),
             ]
         )
 
         if self.dataset_name == "MNIST":
-            self.dataset = MNIST(root="data", train=True, download=True, transform=self.image2tensor)
+            self.dataset = MNIST(
+                root="data", train=True, download=True, transform=self.image2tensor
+            )
         elif self.dataset_name == "CelebA":
             self.dataset = ImageFolder(root=self.path_to_dataset, transform=self.image2tensor)
         else:
@@ -74,7 +79,7 @@ class Trainer:
         # Calculate total training steps based on epochs
         self.num_training_steps = self.num_epochs * len(self.trainloader)
         print(f"Total training steps: {self.num_training_steps}")
-        
+
         self.model = Diffusion(in_channels=self.num_input_channels).to(self.device)
 
         self.model_params = filter(lambda p: p.requires_grad, self.model.parameters())  # @QUESTION
@@ -98,6 +103,7 @@ class Trainer:
 
             for images, labels in self.trainloader:
                 batch_size = images.shape[0]
+                images = images.to(self.device)
 
                 timesteps = torch.randint(
                     low=0, high=self.total_timesteps, device=self.device, size=(batch_size,)
@@ -108,41 +114,43 @@ class Trainer:
                 )
 
                 noise_pred = self.model(noisy_images, timesteps).to(self.device)
-                
+
                 loss = self.loss_fn(noise_pred, noise.to(self.device))
-                
-                training_losses.append(loss.cpu().item()) # @QUESTION
-                
+
+                training_losses.append(loss.cpu().item())  # @QUESTION
+
                 loss.backward()
-                
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0) # @QUESTION
-                
+
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10.0)  # @QUESTION
+
                 self.optimizer.step()
                 self.lr_scheduler.step()
-                self.optimizer.zero_grad(set_to_none=True) # @QUESTION
-                
+                self.optimizer.zero_grad(set_to_none=True)  # @QUESTION
+
                 progress_bar.update(1)
                 completed_steps += 1
-                
+
                 if completed_steps % self.evaluation_interval == 0:
                     loss_mean = np.mean(training_losses)
                     print(f"Training Loss: {loss_mean}")
-                    lr = self.optimizer.param_groups[-1]['lr'] # @QUESTION
-                    print(f"Learning Rate: {lr}") 
-                    
-                    training_losses=[]
-                    
+                    lr = self.optimizer.param_groups[-1]["lr"]  # @QUESTION
+                    print(f"Learning Rate: {lr}")
+
+                    training_losses = []
+
                     print("Saving Image Generation")
-                    Utils.sample_plot_image(step_idx=completed_steps, 
-                                  total_timesteps=self.total_timesteps, 
-                                  sampler=self.ddpm_sampler, 
-                                  image_size=self.image_size,
-                                  num_channels=self.num_input_channels,
-                                  plot_freq=self.plot_freq_interval, 
-                                  model=self.model,
-                                  num_gens=self.num_generations,
-                                  path_to_generated_dir=self.path_to_generated,
-                                  device=self.device)
+                    Utils.sample_plot_image(
+                        step_idx=completed_steps,
+                        total_timesteps=self.total_timesteps,
+                        sampler=self.ddpm_sampler,
+                        image_size=self.image_size,
+                        num_channels=self.num_input_channels,
+                        plot_freq=self.plot_freq_interval,
+                        model=self.model,
+                        num_gens=self.num_generations,
+                        path_to_generated_dir=self.path_to_generated,
+                        device=self.device,
+                    )
 
                 if completed_steps >= self.num_training_steps:
                     print("Training Completed")
@@ -152,14 +160,19 @@ class Trainer:
 
     def save_checkpoint(self):
         os.makedirs(self.path_to_checkpoints, exist_ok=True)
-        checkpoint_path = os.path.join(self.path_to_checkpoints, f"model_epoch_{self.num_epochs}.pth")
-        torch.save({
-            'epoch': self.num_epochs,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.lr_scheduler.state_dict(),
-            'loss': self.loss_fn,
-        }, checkpoint_path)
+        checkpoint_path = os.path.join(
+            self.path_to_checkpoints, f"model_epoch_{self.num_epochs}.pth"
+        )
+        torch.save(
+            {
+                "epoch": self.num_epochs,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "scheduler_state_dict": self.lr_scheduler.state_dict(),
+                "loss": self.loss_fn,
+            },
+            checkpoint_path,
+        )
         print(f"Checkpoint saved to {checkpoint_path}")
 
 
