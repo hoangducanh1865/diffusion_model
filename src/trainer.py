@@ -1,4 +1,5 @@
 import os
+import glob
 import torch
 import numpy as np
 import torch.nn as nn
@@ -32,6 +33,7 @@ class Trainer:
         self.path_to_dataset = args.path_to_dataset
         self.path_to_checkpoints = args.path_to_checkpoints
         self.path_to_generated = args.path_to_generated
+        self.num_checkpoints = args.num_checkpoints
 
         if self.dataset_name == "CIFAR10":
             self.image_size = 32
@@ -187,7 +189,19 @@ class Trainer:
             checkpoint_path,
         )
         print(f"\nCheckpoint saved to {checkpoint_path}")
-
+        
+        # Manage checkpoint count: keep only the top self.num_checkpoints newest
+        checkpoint_files = glob.glob(os.path.join(self.path_to_checkpoints, "*.pth"))
+        if len(checkpoint_files) > self.num_checkpoints:
+            
+            # Sort by modification time, newest first
+            checkpoint_files.sort(key=os.path.getmtime, reverse=True)
+            
+            # Keep the newest num_checkpoints, delete the rest
+            files_to_delete = checkpoint_files[self.num_checkpoints:]
+            for file in files_to_delete:
+                os.remove(file)
+                print(f"Deleted old checkpoint: {file}")
 
 def test():
     trainer = Trainer()

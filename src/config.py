@@ -11,6 +11,7 @@ class Config:
     )  # MNIST and CIFAR10 download to data
     lr = 0.0001
     num_epochs = 5
+    num_checkpoints = 5  # Maximum number of checkpoints to keep
     path_to_checkpoints = os.path.join("models", "checkpoints")
     path_to_generated = os.path.join("models", "generated")
 
@@ -33,12 +34,12 @@ class Config:
             choices=["MNIST", "CelebA", "CIFAR10"],
             help="Dataset to use",
         )
-        parser.add_argument(
-            "--path_to_dataset", type=str, default=Config.path_to_dataset, help="Path to dataset"
-        )
         parser.add_argument("--lr", type=float, default=Config.lr, help="Learning rate")
         parser.add_argument(
             "--num_epochs", type=int, default=Config.num_epochs, help="Number of epochs"
+        )
+        parser.add_argument(
+            "--num_checkpoints", type=int, default=Config.num_checkpoints, help="Maximum number of checkpoints to keep"
         )
         parser.add_argument(
             "--path_to_checkpoints",
@@ -51,4 +52,7 @@ class Config:
             type=str,
             default=Config.path_to_generated,
             help="Path to generated images during training process",
+        )
+        parser.add_argument(
+            "--path_to_dataset", type=str, default=Config.path_to_dataset, help="Path to dataset"
         )
