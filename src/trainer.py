@@ -93,6 +93,8 @@ class Trainer:
         self.ddpm_sampler = Sampler(num_timesteps=total_timesteps)
         self.loss_fn = nn.MSELoss()
 
+        self.current_epoch = 0
+
     def train(self):
         progress_bar = tqdm(range(self.num_training_steps))
         completed_steps = 0
@@ -132,7 +134,7 @@ class Trainer:
 
                 if completed_steps % self.evaluation_interval == 0:
                     loss_mean = np.mean(training_losses)
-                    print(f"Training Loss: {loss_mean}")
+                    print(f"\nTraining Loss: {loss_mean}")
                     lr = self.optimizer.param_groups[-1]["lr"]  # @QUESTION
                     print(f"Learning Rate: {lr}")
 
@@ -152,20 +154,24 @@ class Trainer:
                         device=self.device,
                     )
 
-                if completed_steps >= self.num_training_steps:
-                    print("Training Completed")
-                    self.save_checkpoint()
-                    train = False
-                    break
+            self.current_epoch += 1
+            if self.current_epoch % 5 == 0:
+                self.save_checkpoint()
+
+            if completed_steps >= self.num_training_steps:
+                print("Training Completed")
+                self.save_checkpoint()
+                train = False
+                break
 
     def save_checkpoint(self):
         os.makedirs(self.path_to_checkpoints, exist_ok=True)
         checkpoint_path = os.path.join(
-            self.path_to_checkpoints, f"model_epoch_{self.num_epochs}.pth"
+            self.path_to_checkpoints, f"model_epoch_{self.current_epoch}.pth"
         )
         torch.save(
             {
-                "epoch": self.num_epochs,
+                "epoch": self.current_epoch,
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "scheduler_state_dict": self.lr_scheduler.state_dict(),
@@ -173,7 +179,7 @@ class Trainer:
             },
             checkpoint_path,
         )
-        print(f"Checkpoint saved to {checkpoint_path}")
+        print(f"\nCheckpoint saved to {checkpoint_path}")
 
 
 def test():
