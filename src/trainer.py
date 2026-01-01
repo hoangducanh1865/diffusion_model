@@ -5,7 +5,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from src.config import Config
 from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder, MNIST
+from torchvision.datasets import ImageFolder, MNIST, CIFAR10
 from torchvision import transforms
 from transformers import get_cosine_schedule_with_warmup
 from src.diffusion import Diffusion
@@ -33,7 +33,10 @@ class Trainer:
         self.path_to_checkpoints = args.path_to_checkpoints
         self.path_to_generated = args.path_to_generated
 
-        self.image_size = image_size
+        if self.dataset_name == "CIFAR10":
+            self.image_size = 32
+        else:
+            self.image_size = image_size  # default 64 for model consistency, even though true image_size of MNIST dataset must be 28
         self.btach_size = batch_size
         self.total_timesteps = total_timesteps
         self.plot_freq_interval = plot_freq_interval
@@ -44,7 +47,7 @@ class Trainer:
         # Set num_input_channels based on dataset
         if self.dataset_name == "MNIST":
             self.num_input_channels = 1
-        elif self.dataset_name == "CelebA":
+        elif self.dataset_name == "CIFAR10" or self.dataset_name == "CelebA":
             self.num_input_channels = 3
 
         self.image2tensor = transforms.Compose(
@@ -66,8 +69,12 @@ class Trainer:
             )
         elif self.dataset_name == "CelebA":
             self.dataset = ImageFolder(root=self.path_to_dataset, transform=self.image2tensor)
+        elif self.dataset_name == "CIFAR10":
+            self.dataset = CIFAR10(
+                root="data", train=True, download=True, transform=self.image2tensor
+            )
         else:
-            raise ValueError("Invalid dataset. Choose 'MNIST' or 'CelebA'.")
+            raise ValueError("Invalid dataset. Choose 'MNIST', 'CelebA', or 'CIFAR10'.")
 
         self.trainloader = DataLoader(
             dataset=self.dataset,

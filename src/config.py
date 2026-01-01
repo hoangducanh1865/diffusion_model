@@ -5,10 +5,10 @@ import argparse
 
 class Config:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    dataset = "MNIST"  # ["MNIST", "CelebA"]
+    dataset = "MNIST"  # ["MNIST", "CelebA", "CIFAR10"]
     path_to_dataset = (
         os.path.join("data", "CelebA") if dataset == "CelebA" else "data"
-    )  # MNIST downloads to data
+    )  # MNIST and CIFAR10 download to data
     lr = 0.0001
     num_epochs = 5
     path_to_checkpoints = os.path.join("models", "checkpoints")
@@ -30,7 +30,7 @@ class Config:
             "--dataset",
             type=str,
             default=Config.dataset,
-            choices=["MNIST", "CelebA"],
+            choices=["MNIST", "CelebA", "CIFAR10"],
             help="Dataset to use",
         )
         parser.add_argument(
